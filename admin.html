@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LMI ADMIN - Kelola Data</title>
+    <meta name="theme-color" content="#1a73e8">
+    <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/LMI-PROJECT/HuviTrack-PWA/main/logo_LMI.png">
+    
+    <script>
+        (function() {
+            const PIN_RAHASIA = "123456"; // GANTI PIN DISINI
+            if (sessionStorage.getItem("lmi_session_valid") !== "true") {
+                setTimeout(function() {
+                    const input = prompt("⛔ AREA ADMIN TERKUNCI ⛔\nSilakan masukkan PIN:");
+                    if (input === PIN_RAHASIA) {
+                        sessionStorage.setItem("lmi_session_valid", "true");
+                    } else {
+                        alert("Akses Ditolak! Mengalihkan ke halaman Monitor...");
+                        window.location.href = "index.html"; 
+                    }
+                }, 100);
+            }
+        })();
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        /* --- STYLE (SAMA SEPERTI SEBELUMNYA) --- */
+        :root {
+            --primary: #1a73e8; --primary-dark: #0d47a1; --secondary: #34a853;
+            --danger: #ea4335; --warning: #fbbc04; --info: #4285f4; 
+            --light: #f8f9fa; --dark: #202124; --gray: #5f6368;
+            --border-radius: 12px; --shadow: 0 2px 10px rgba(0,0,0,0.1);
+            --transition: all 0.3s ease;
+        }
+        [data-theme="dark"] {
+            --primary: #4a90e2; --primary-dark: #1c5bb5; --secondary: #4caf50;
+            --danger: #f44336; --warning: #ff9800; --info: #67a6ff;
+            --light: #121212; --dark: #e0e0e0; --gray: #b0b0b0;
+            --shadow: 0 0 10px rgba(255,255,255,0.05);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background-color: var(--light); color: var(--dark); line-height: 1.6; min-height: 100vh; transition: var(--transition); }
+        
+        .text-success { color: var(--secondary); } .text-danger { color: var(--danger); }
+        .text-warning { color: var(--warning); } .text-info { color: var(--info); }
+        
+        /* Splash Screen */
+        #splash-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; transition: opacity 0.5s ease; }
+        .splash-logo { width: 120px; height: 120px; background: white; border-radius: 24px; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        .splash-logo img { max-width: 80%; max-height: 80%; object-fit: contain; }
+        .splash-title { color: white; font-size: 2.5rem; font-weight: 700; margin-bottom: 10px; }
+        .splash-subtitle { color: rgba(255,255,255,0.8); font-size: 1.2rem; margin-bottom: 40px; }
+        .splash-footer { position: absolute; bottom: 30px; color: rgba(255,255,255,0.7); }
+
+        /* Main App */
+        #main-app { display: none; min-height: 100vh; background: var(--light); padding-bottom: 60px; }
+        .main-header { background: var(--light); padding: 15px 20px; box-shadow: var(--shadow); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+        .header-title { display: flex; align-items: center; gap: 10px; }
+        .header-icon { width: 40px; height: 40px; background: var(--primary); border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+        .header-icon img { max-width: 80%; max-height: 80%; object-fit: contain; }
+        .icon-btn { background: none; border: none; font-size: 20px; color: var(--gray); cursor: pointer; padding: 5px; border-radius: 50%; transition: var(--transition); }
+        .app-content { padding: 20px; max-width: 1200px; margin: 0 auto; width: 100%; }
+
+        /* Components */
+        .balance-card { background: linear-gradient(135deg, var(--primary), var(--primary-dark)); color: white; padding: 25px; border-radius: var(--border-radius); margin-bottom: 20px; box-shadow: var(--shadow); }
+        .balance-label { font-size: 1rem; opacity: 0.9; margin-bottom: 5px; }
+        .balance-amount { font-size: 2.5rem; font-weight: 700; margin-bottom: 10px; }
+        .balance-details { display: flex; justify-content: space-between; font-size: 0.9rem; opacity: 0.9; }
+        .section-title { font-size: 1.3rem; font-weight: 600; margin: 25px 0 15px; color: var(--dark); }
+
+        /* Tabs */
+        .tab-menu { display: flex; border-bottom: 2px solid #e0e0e0; margin-bottom: 20px; overflow-x: auto; white-space: nowrap; }
+        .tab-button { padding: 10px 20px; cursor: pointer; background: none; border: none; font-size: 1rem; font-weight: 600; color: var(--gray); border-bottom: 2px solid transparent; transition: var(--transition); flex-shrink: 0; }
+        .tab-button.active { color: var(--primary); border-bottom: 2px solid var(--primary); }
+        .content-menu { display: flex; border-bottom: 1px solid #e0e0e0; margin-bottom: 20px; overflow-x: auto; white-space: nowrap; gap: 5px; }
+        .content-button { padding: 8px 15px; cursor: pointer; background: none; border: none; font-size: 0.9rem; font-weight: 500; color: var(--gray); border-bottom: 2px solid transparent; transition: var(--transition); flex-shrink: 0; }
+        .content-button.active { color: var(--primary); border-bottom: 2px solid var(--primary); background: rgba(26, 115, 232, 0.05); border-radius: 5px 5px 0 0; }
+        .tab-content, .sub-content { display: none; }
+        .tab-content.active, .sub-content.active { display: block; }
+
+        /* Forms & Tables */
+        .transaction-form { background: var(--light); padding: 20px; border-radius: var(--border-radius); box-shadow: var(--shadow); margin-bottom: 20px; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px; }
+        .form-input { padding: 12px; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 14px; background: var(--light); color: var(--dark); width: 100%; }
+        .btn { padding: 12px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 500; transition: var(--transition); display: flex; align-items: center; justify-content: center; gap: 5px; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-success { background: var(--secondary); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-info { background: var(--info); color: white; } 
+        .btn-warning { background: var(--warning); color: black; }
+        .btn-block { width: 100%; }
+        .btn-table-sm { padding: 5px 8px; font-size: 0.75rem; border-radius: 5px; }
+        .transactions-table { width: 100%; border-collapse: collapse; min-width: 600px; }
+        .transactions-table th, .transactions-table td { padding: 15px; text-align: left; border-bottom: 1px solid #f0f0f0; color: var(--dark); }
+        .transactions-table th { background: #f8f9fa; font-weight: 600; color: var(--gray); font-size: 0.9rem; }
+
+        /* Inventory Cards */
+        .inventory-item-card { background: white; padding: 15px; border-radius: var(--border-radius); box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .inventory-item-card .details { flex-grow: 1; }
+        .inventory-item-card .code { font-size: 0.75rem; font-weight: 600; color: var(--primary); margin-bottom: 3px; }
+        .stock-control { display: flex; gap: 5px; }
+        .qty-label { font-size: 1.5rem; font-weight: 700; color: var(--primary-dark); }
+        .small-text { font-size: 0.8rem; color: var(--gray); }
+        .sku-card { background: white; padding: 15px; border-radius: var(--border-radius); box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 10px; }
+
+        /* Modal */
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; display: none; justify-content: center; align-items: center; }
+        .modal-content { background: var(--light); padding: 30px; border-radius: var(--border-radius); width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; box-shadow: var(--shadow); animation: fadeIn 0.3s ease; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #e0e0e0; padding-bottom: 10px; }
+        .modal-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--gray); }
+        .settings-menu-list { list-style: none; } .settings-menu-list li { margin-bottom: 10px; }
+
+        /* Multi-Select Checkbox */
+        .sku-selector-container { border: 1px solid #e0e0e0; border-radius: 8px; max-height: 250px; overflow-y: auto; background: white; padding: 5px; margin-bottom: 10px; box-shadow: inset 0 2px 5px rgba(0,0,0,0.05); }
+        .sku-checkbox-item { display: flex; align-items: center; padding: 10px 15px; border-bottom: 1px solid #f0f0f0; cursor: pointer; transition: background 0.2s; }
+        .sku-checkbox-item:hover { background-color: #f1f5f9; }
+        .sku-checkbox-item:last-child { border-bottom: none; }
+        .sku-checkbox-item input[type="checkbox"] { width: 18px; height: 18px; margin-right: 12px; cursor: pointer; accent-color: var(--primary); }
+        .sku-checkbox-label { flex-grow: 1; cursor: pointer; font-size: 0.95rem; display: flex; justify-content: space-between; }
+        .selection-summary { background: linear-gradient(135deg, var(--info), var(--primary)); color: white; padding: 8px 15px; border-radius: 8px; font-size: 0.9rem; text-align: center; margin-bottom: 15px; display: none; font-weight: 500; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .selection-summary.active { display: block; }
+        
+        /* Cloud Status */
+        #cloud-status { padding: 12px; margin-bottom: 15px; border-radius: 8px; background: #e3f2fd; color: var(--primary-dark); font-size: 0.9rem; display: none; text-align: center; border: 1px solid #bbdefb; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body data-theme="light">
+    
+    <div id="splash-screen">
+        <div class="splash-logo"><img src="https://raw.githubusercontent.com/LMI-PROJECT/HuviTrack-PWA/main/logo_LMI.png" alt="LMI Project Logo"></div>
+        <h1 class="splash-title">LMI PROJECT</h1>
+        <p class="splash-subtitle">Loading...</p>
+        <div class="splash-footer"><p class="version">Versi 1.7.1 (DB Fix)</p></div>
+    </div>
+
+    <div id="main-app">
+        <div class="main-header">
+            <div class="header-title">
+                <div class="header-icon"><img src="https://raw.githubusercontent.com/LMI-PROJECT/HuviTrack-PWA/main/logo_LMI.png" alt="LMI Project Logo"></div>
+                <h2>LMI PROJECT</h2>
+            </div>
+            <div class="header-actions">
+                <button class="icon-btn" id="theme-toggle" title="Ganti Tema">&#9728;</button>
+                <button class="icon-btn" title="Menu & Export" onclick="UIModule.openModal('settings-modal')">&#9881;</button>
+            </div>
+        </div>
+
+        <div class="app-content">
+            <div class="tab-menu">
+                <button class="tab-button active" data-target="finance-content">Keuangan</button>
+                <button class="tab-button" data-target="inventory-content" id="inventory-main-button">Persediaan</button>
+            </div>
+
+            <div class="tab-content active" id="finance-content">
+                <h3 class="section-title">Ringkasan Saldo</h3>
+                <div class="balance-card">
+                    <p class="balance-label">Total Saldo Bersih</p>
+                    <div class="balance-amount" id="balance-amount">Rp0</div>
+                    <div class="balance-details"><span id="income-amount">Masuk: Rp0</span><span id="expense-amount">Keluar: Rp0</span></div>
+                </div>
+                <h3 class="section-title">Catat Transaksi Baru</h3>
+                <form class="transaction-form" id="transaction-form">
+                    <div class="form-grid">
+                        <select name="type" class="form-input" required><option value="expense">Pengeluaran</option><option value="income">Pemasukan</option></select>
+                        <select id="account-select" name="account" class="form-input" required></select>
+                        <input type="number" name="amount" class="form-input" placeholder="Jumlah (Rp)" required min="1">
+                        <input type="date" name="date" class="form-input">
+                        <input type="text" name="description" class="form-input" placeholder="Deskripsi" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">+ Tambah Transaksi</button>
+                </form>
+                <h3 class="section-title">Riwayat</h3>
+                <div class="table-container"><table class="transactions-table"><thead><tr><th>Tgl</th><th>Tipe</th><th>Ket</th><th style="text-align: right;">Jumlah</th><th>Aksi</th></tr></thead><tbody id="transactions-body"></tbody></table></div>
+            </div>
+
+            <div class="tab-content" id="inventory-content">
+                <div class="content-menu">
+                    <button class="content-button active" onclick="InventoryModule.filterLocation('ALL', this)">Semua</button>
+                    <button class="content-button" onclick="InventoryModule.filterLocation('G1', this)">G1</button>
+                    <button class="content-button" onclick="InventoryModule.filterLocation('G2', this)">G2</button>
+                    <button class="content-button" onclick="InventoryModule.filterLocation('G3', this)">G3</button>
+                    <button class="content-button" onclick="InventoryModule.filterLocation('TM', this)">TM</button>
+                    <button class="content-button" onclick="UIModule.showHistoryTab(this)">Riwayat</button>
+                </div>
+                <div class="sub-content active" id="inventory-summary-content">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;"><h3 class="section-title" style="margin:0" id="inventory-list-title">Daftar Item</h3><button class="btn btn-primary" onclick="UIModule.openAddItemModal()">+ Item</button></div>
+                    <div id="inventory-search-container" style="margin-bottom:20px;"><input type="text" id="inventory-search" class="form-input" placeholder="Cari Item..." onkeyup="InventoryModule.searchItems(this.value)"></div>
+                    <div id="inventory-list"></div>
+                </div>
+                <div class="sub-content" id="inventory-sku-content">
+                    <h3 class="section-title">SKU Aktif</h3><div id="sku-active-list"></div>
+                </div>
+                <div class="sub-content" id="inventory-history-content">
+                    <h3 class="section-title">Riwayat Stok</h3>
+                    <div style="margin-bottom:15px;"><input type="text" id="history-search" class="form-input" placeholder="Cari Riwayat..." onkeyup="InventoryModule.searchHistory(this.value)"></div>
+                    <div class="table-container"><table class="transactions-table"><thead><tr><th>Tgl</th><th>Item</th><th>SKU</th><th>Tipe</th><th>Qty</th><th>Ket</th><th>Aksi</th></tr></thead><tbody id="inventory-history-body"></tbody></table></div>
+                </div>
+            </div>
+        </div>
+        <div class="app-footer"><p>LMI PROJECT &copy; 2025</p></div>
+    </div>
+    
+    <div id="add-item-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><h3 id="item-modal-title">Tambah Item</h3><button class="modal-close" onclick="UIModule.closeModal('add-item-modal')">&times;</button></div>
+            <form id="new-item-form">
+                <input type="hidden" name="id" id="item-id-edit-field">
+                <div class="form-grid" style="grid-template-columns:1fr 1fr;"><input type="text" name="name" class="form-input" placeholder="Nama" required><input type="text" name="brand" class="form-input" placeholder="Merk" required></div>
+                <div class="form-grid" style="grid-template-columns:1fr 1fr;"><input type="text" name="unit" class="form-input" placeholder="Satuan" required><select name="condition" class="form-input"><option value="Baik">Baik</option><option value="Rusak Ringan">Rusak Ringan</option><option value="Rusak Berat">Rusak Berat</option></select></div>
+                <div style="margin-bottom:15px;"><input type="text" name="location" class="form-input" placeholder="Kode Lokasi (G1A2, TM...)" required><p class="small-text" style="margin-top:5px;color:var(--info)">Tips: G1A2 &rarr; GUDANG 1 LEMARI A BARIS 2</p></div>
+                <input type="number" name="price" class="form-input" placeholder="Harga Beli" required min="1" style="margin-bottom:15px;"><textarea name="notes" class="form-input" placeholder="Catatan" rows="2"></textarea>
+                <button type="submit" class="btn btn-success btn-block" style="margin-top:20px;" id="item-modal-submit-btn">Simpan</button>
+            </form>
+        </div>
+    </div>
+    
+    <div id="stock-adjust-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><h3>Kelola Stok</h3><button class="modal-close" onclick="UIModule.closeModal('stock-adjust-modal')">&times;</button></div>
+            <form id="adjust-stock-form">
+                <div style="background:#f8f9fa;padding:10px;border-radius:8px;margin-bottom:15px;border:1px solid #eee;"><p style="margin:0;">Item: <strong id="adjust-item-name"></strong></p><p style="margin:0;">Sisa: <strong id="adjust-current-qty"></strong></p></div>
+                <input type="hidden" name="itemId" id="adjust-item-id">
+                <select name="type" id="adjust-type" class="form-input" required style="margin-bottom:15px;"><option value="IN">Barang Masuk</option><option value="OUT">Penjualan</option><option value="EVENT_OUT">Event</option><option value="DAMAGE_OUT">Rusak/Reject</option><option value="SERVICE_OUT">Service Keluar</option><option value="SERVICE_IN">Service Masuk</option></select>
+                <div id="in-mode-inputs"><div class="form-grid" style="grid-template-columns:1fr 2fr;"><input type="number" name="quantity" id="adjust-quantity" class="form-input" placeholder="Qty" min="1" value="1"><input type="text" name="sku_start" id="adjust-sku-start" class="form-input" placeholder="SKU Awal (MPC001)"></div><p class="small-text" style="color:var(--info);margin-top:-10px;margin-bottom:15px;">*SKU otomatis berurutan.</p></div>
+                <div id="out-mode-inputs" style="display:none;"><div id="selection-summary" class="selection-summary">Terpilih: <strong id="selected-count">0</strong> Unit</div><p class="small-text">Pilih SKU:</p><div id="sku-multi-select-container" class="sku-selector-container"></div><p class="small-text text-danger" id="no-sku-msg" style="display:none;text-align:center;">Kosong</p></div>
+                <textarea name="notes" class="form-input" placeholder="Keterangan" rows="2"></textarea><input type="text" name="recordedBy" class="form-input" placeholder="Dicatat Oleh" required style="margin-top:10px;margin-bottom:20px;">
+                <button type="submit" class="btn btn-primary btn-block" id="adjust-submit-btn">Konfirmasi</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header"><h3>Menu & Cloud</h3><button class="modal-close" onclick="UIModule.closeModal('settings-modal')">&times;</button></div>
+            
+            <div id="cloud-status"></div>
+
+            <div style="margin-bottom:20px;">
+                <label class="small-text" style="font-weight:bold;">URL Google Apps Script:</label>
+                <input type="text" id="cloud-api-url" class="form-input" placeholder="https://script.google.com/macros/s/..." style="margin-bottom:10px;">
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <button class="btn btn-primary" onclick="CloudModule.syncNow('UPLOAD')">
+                        &#8679; Kirim Data (Upload)
+                    </button>
+                    <button class="btn btn-warning" onclick="CloudModule.syncNow('DOWNLOAD')">
+                        &#8681; Ambil Data (Download)
+                    </button>
+                </div>
+                <p class="small-text" style="color:var(--info); margin-top:10px; text-align:center;">
+                    <strong>Upload:</strong> PC ke Google Sheets<br>
+                    <strong>Download:</strong> Google Sheets ke HP
+                </p>
+            </div>
+            
+            <hr style="border:0;border-top:1px solid #eee;margin:15px 0;">
+            
+            <div style="margin-bottom:20px;">
+                <p class="small-text">Export Manual (Backup):</p>
+                <ul class="settings-menu-list">
+                    <li><button class="btn btn-success btn-block" onclick="DataModule.exportFinance()">Export Keuangan (.CSV)</button></li>
+                    <li><button class="btn btn-info btn-block" onclick="DataModule.exportInventoryHistory()">Export Riwayat (.CSV)</button></li>
+                </ul>
+            </div>
+            <p class="small-text" style="text-align:center;">LMI PROJECT v1.7.1</p>
+        </div>
+    </div>
+
+    <script>
+        // ===================== DB (FIXED VERSION 5) =====================
+        const DBModule={DB_NAME:'LMI_PROJECT_DB',DB_VERSION:5,db:null,openDB(){return new Promise((res,rej)=>{if(!window.indexedDB)return rej("No IndexedDB");const req=indexedDB.open(this.DB_NAME,this.DB_VERSION);req.onupgradeneeded=e=>{const db=e.target.result;if(!db.objectStoreNames.contains('transactions')){const ts=db.createObjectStore('transactions',{keyPath:'id',autoIncrement:true});ts.createIndex('by_type','type');ts.createIndex('by_account','account')}if(!db.objectStoreNames.contains('accounts'))db.createObjectStore('accounts',{keyPath:'name'});if(!db.objectStoreNames.contains('inventory_items'))db.createObjectStore('inventory_items',{keyPath:'id',autoIncrement:true});if(!db.objectStoreNames.contains('inventory_history')){const hs=db.createObjectStore('inventory_history',{keyPath:'id',autoIncrement:true});hs.createIndex('by_itemId','itemId');hs.createIndex('by_sku','itemSku')}};req.onsuccess=e=>{this.db=e.target.result;res(this.db)};req.onerror=e=>rej(e.target.error)})},getAll:store=>DBModule._tx(store,'readonly',s=>s.getAll()),getAllIdx:(store,idx,key)=>DBModule._tx(store,'readonly',s=>s.index(idx).getAll(key)),put:(store,item)=>DBModule._tx(store,'readwrite',s=>s.put(item)),del:(store,id)=>DBModule._tx(store,'readwrite',s=>s.delete(id)),getItem:(store,id)=>DBModule._tx(store,'readonly',s=>s.get(id)),clear:(store)=>DBModule._tx(store,'readwrite',s=>s.clear()),batchPut:(store,items)=>{return new Promise((res,rej)=>{const tx=DBModule.db.transaction([store],'readwrite');const s=tx.objectStore(store);items.forEach(i=>s.put(i));tx.oncomplete=()=>res();tx.onerror=e=>rej(e)})},_tx(store,mode,cb){return new Promise((res,rej)=>{const tx=this.db.transaction([store],mode);const req=cb(tx.objectStore(store));req.onsuccess=()=>res(req.result);req.onerror=()=>rej(req.error)})}};
+
+        // ===================== CLOUD MODULE (2-WAY SYNC) =====================
+        const CloudModule = {
+            async syncNow(mode) {
+                const url = document.getElementById('cloud-api-url').value.trim();
+                const statusDiv = document.getElementById('cloud-status');
+                if (!url) { alert("Isi URL Apps Script!"); return; }
+                localStorage.setItem('lmi_cloud_url', url);
+                
+                statusDiv.style.display = 'block';
+                statusDiv.style.background = "#e3f2fd"; statusDiv.style.color = "#0d47a1";
+                statusDiv.textContent = mode === 'UPLOAD' ? "📤 Mengirim data ke Cloud..." : "📥 Mengambil data dari Cloud...";
+
+                try {
+                    if (mode === 'UPLOAD') {
+                        // --- UPLOAD LOGIC (PC -> Cloud) ---
+                        const finance = await FinanceModule.load();
+                        const items = await DBModule.getAll('inventory_items');
+                        const history = await DBModule.getAll('inventory_history');
+                        const payload = {
+                            finance: finance.map(t => [t.id, t.date, t.type, t.account, t.amount, t.description]),
+                            items: items.map(i => [i.id, i.name, i.brand, i.unit, i.condition, i.location, i.price, i.quantity, i.notes, i.lastUpdated]),
+                            history: history.map(h => [h.id, h.date, h.itemName, h.itemSku, h.typeLabel, h.quantity, h.unit, h.notes, h.recordedBy])
+                        };
+                        await fetch(url, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                        statusDiv.textContent = "✅ Data Terkirim! Sekarang buka HP dan klik 'Ambil Data'.";
+                    } else {
+                        // --- DOWNLOAD LOGIC (Cloud -> HP) ---
+                        const res = await fetch(url);
+                        const data = await res.json();
+                        
+                        if(!data.finance || !data.items) throw new Error("Data Cloud Kosong/Rusak");
+
+                        // 1. Clear Local DB
+                        await DBModule.clear('transactions');
+                        await DBModule.clear('inventory_items');
+                        await DBModule.clear('inventory_history');
+
+                        // 2. Insert Data (Map Array to Object)
+                        // Finance: [ID, Date, Type, Account, Amount, Desc]
+                        const finObjs = data.finance.map(r => ({ id:r[0], date:r[1], type:r[2], account:r[3], amount:r[4], description:r[5], timestamp: Date.now() }));
+                        // Items: [ID, Name, Brand, Unit, Cond, Loc, Price, Qty, Notes, LastUp]
+                        const itemObjs = data.items.map(r => ({ id:r[0], name:r[1], brand:r[2], unit:r[3], condition:r[4], location:r[5], price:r[6], quantity:r[7], notes:r[8], lastUpdated:r[9] }));
+                        // History: [ID, Date, Name, SKU, Type, Qty, Unit, Notes, RecordedBy]
+                        const histObjs = data.history.map(r => ({ id:r[0], date:r[1], itemName:r[2], itemSku:r[3], typeLabel:r[4], quantity:r[5], unit:r[6], notes:r[7], recordedBy:r[8], timestamp: Date.now() }));
+
+                        await DBModule.batchPut('transactions', finObjs);
+                        await DBModule.batchPut('inventory_items', itemObjs);
+                        await DBModule.batchPut('inventory_history', histObjs);
+
+                        statusDiv.textContent = "✅ Data Berhasil Diambil! Aplikasi akan refresh...";
+                        setTimeout(() => location.reload(), 2000);
+                    }
+                    statusDiv.style.background = "#d4edda"; statusDiv.style.color = "#155724";
+                } catch (error) {
+                    console.error(error);
+                    statusDiv.textContent = "❌ Error: " + error.message;
+                    statusDiv.style.background = "#f8d7da"; statusDiv.style.color = "#721c24";
+                }
+            },
+            init() { const u = localStorage.getItem('lmi_cloud_url'); if(u) document.getElementById('cloud-api-url').value = u; }
+        };
+
+        // ===================== DATA EXPORT =====================
+        const DataModule={dl(csv,name){const b=new Blob(["\uFEFF"+csv],{type:'text/csv;charset=utf-8;'});const l=document.createElement("a");l.href=URL.createObjectURL(b);l.download=name;document.body.appendChild(l);l.click();document.body.removeChild(l)},toCSV(arr){if(!arr.length)return'';const h=Object.keys(arr[0]).join(",");const r=arr.map(o=>Object.values(o).map(v=>`"${String(v).replace(/"/g,'""')}"`).join(",")).join("\r\n");return h+"\r\n"+r},async exportFinance(){const d=await FinanceModule.load();if(!d.length)return alert("Kosong");this.dl(this.toCSV(d.map(t=>({Tgl:t.date,Tipe:t.type,Akun:t.account,Jml:t.amount,Ket:t.description}))),'Keuangan.csv')},async exportInventoryItems(){const d=InventoryModule.items;this.dl(this.toCSV(d.map(i=>({Nama:i.name,Brand:i.brand,Stok:i.quantity,Satuan:i.unit,Lokasi:i.location}))),'Stok_Item.csv')},async exportInventoryHistory(){const d=InventoryModule.history;this.dl(this.toCSV(d.map(h=>({Tgl:h.date,Item:h.itemName,SKU:h.itemSku,Tipe:h.typeLabel,Qty:h.quantity,Ket:h.notes}))),'Riwayat_Stok.csv')}};
+
+        // ===================== LOGIC =====================
+        const AccountModule={async init(){let accs=await DBModule.getAll('accounts');if(!accs.length){await DBModule.put('accounts',{name:'Kas Utama'});accs=await DBModule.getAll('accounts')}const sel=document.getElementById('account-select');sel.innerHTML='';accs.forEach(a=>sel.add(new Option(a.name,a.name)))}};
+        const FinanceModule={async init(){this.render();document.getElementById('transaction-form').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target);await DBModule.put('transactions',{type:fd.get('type'),account:fd.get('account'),amount:parseFloat(fd.get('amount')),date:fd.get('date')||new Date().toISOString().split('T')[0],description:fd.get('description'),timestamp:Date.now()});this.render();e.target.reset()}},async load(){return(await DBModule.getAll('transactions')).sort((a,b)=>b.timestamp-a.timestamp)},async render(){const data=await this.load();let inc=0,exp=0;const tbody=document.getElementById('transactions-body');tbody.innerHTML='';if(!data.length)tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:#888">Belum ada data</td></tr>';data.forEach(t=>{t.type==='income'?inc+=t.amount:exp+=t.amount;tbody.innerHTML+=`<tr><td>${t.date}</td><td>${t.type==='income'?'Pemasukan':'Pengeluaran'}</td><td>${t.description}</td><td style="text-align:right" class="${t.type==='income'?'text-success':'text-danger'}">${t.type==='income'?'+':'-'} ${Number(t.amount).toLocaleString('id-ID')}</td><td><button class="btn btn-danger btn-table-sm" onclick="FinanceModule.del(${t.id})">Hapus</button></td></tr>`});document.getElementById('balance-amount').textContent=`Rp${(inc-exp).toLocaleString('id-ID')}`;document.getElementById('income-amount').textContent=`Pemasukan: ${Number(inc).toLocaleString('id-ID')}`;document.getElementById('expense-amount').textContent=`Pengeluaran: ${Number(exp).toLocaleString('id-ID')}`},async del(id){if(confirm('Hapus?')){await DBModule.del('transactions',id);this.render()}}};
+        
+        const InventoryModule={items:[],history:[],currentFilter:'ALL',async init(){await this.refresh();document.getElementById('new-item-form').onsubmit=this.saveItem;document.getElementById('adjust-stock-form').onsubmit=this.adjustStock;this.filterLocation('ALL',document.querySelector('.content-button.active'))},async refresh(){this.items=await DBModule.getAll('inventory_items');this.history=(await DBModule.getAll('inventory_history')).sort((a,b)=>b.id-a.id);this.renderItems(this.getFilteredItems());const sv=document.getElementById('history-search').value;if(sv)this.searchHistory(sv);else this.renderHistory()},filterLocation(loc,btn){this.currentFilter=loc;document.querySelectorAll('.content-button').forEach(b=>b.classList.remove('active'));if(btn)btn.classList.add('active');document.querySelectorAll('.sub-content').forEach(c=>c.classList.remove('active'));document.getElementById('inventory-summary-content').classList.add('active');document.getElementById('inventory-list-title').textContent=`Daftar Item (${loc==='ALL'?'Semua':(loc==='G1'?'Gudang 1':loc)})`;this.renderItems(this.getFilteredItems())},getFilteredItems(){if(this.currentFilter==='ALL')return this.items;return this.items.filter(i=>i.location&&i.location.startsWith(this.currentFilter))},formatLocation(c){if(!c)return'-';const u=c.toUpperCase().replace(/\s/g,'');if(u==='TM')return'TEXNO MERCH';const m=u.match(/^G(\d+)([A-Z])(\d+)$/);return m?`GUDANG ${m[1]} LEMARI ${m[2]} BARIS ${m[3]}`:c},getAvailSkus(){const m={};this.history.forEach(h=>{if(!m[h.itemSku])m[h.itemSku]={id:h.itemId,qty:0};m[h.itemSku].qty+=h.quantity});const r=[];for(let k in m){if(m[k].qty>0){const i=this.items.find(x=>x.id===m[k].id);if(i)r.push({sku:k,itemId:i.id,name:i.name,loc:i.location})}}return r},async saveItem(e){e.preventDefault();const fd=new FormData(e.target);const idVal=document.getElementById('item-id-edit-field').value;const isEdit=!!idVal;const obj={name:fd.get('name'),brand:fd.get('brand'),unit:fd.get('unit'),condition:fd.get('condition'),price:parseFloat(fd.get('price')),notes:fd.get('notes'),location:fd.get('location').toUpperCase()||'-',lastUpdated:new Date().toISOString().split('T')[0]};if(isEdit){obj.id=parseInt(idVal);const old=InventoryModule.items.find(x=>x.id==obj.id);obj.quantity=old?old.quantity:0;const rh=await DBModule.getAllIdx('inventory_history','by_itemId',obj.id);if(rh.length>0){await Promise.all(rh.map(h=>{h.itemName=obj.name;h.unit=obj.unit;return DBModule.put('inventory_history',h)}))}}else{obj.quantity=0}await DBModule.put('inventory_items',obj);InventoryModule.refresh();UIModule.closeModal('add-item-modal')},async adjustStock(e){e.preventDefault();const fd=new FormData(e.target);const itemId=parseInt(fd.get('itemId'));const item=InventoryModule.items.find(x=>x.id===itemId);const type=fd.get('type');const isIN=type.includes('IN');const notes=fd.get('notes');const by=fd.get('recordedBy');const date=new Date().toISOString().split('T')[0];const recs=[];let change=0;if(isIN){const qty=parseInt(fd.get('quantity'));const start=(fd.get('sku_start')||'').toUpperCase().trim();if(qty<1||!start)return alert('Isi Qty & SKU');const match=start.match(/(\d+)$/);if(!match)return alert('SKU harus akhiran angka');const num=parseInt(match[1]);const pre=start.slice(0,-match[1].length);const am={};InventoryModule.history.forEach(h=>{if(!am[h.itemSku])am[h.itemSku]=0;am[h.itemSku]+=h.quantity});for(let i=0;i<qty;i++){const ns=pre+String(num+i).padStart(match[1].length,'0');if(am[ns]>0)return alert('SKU '+ns+' duplikat!');recs.push({itemId,itemName:item.name,itemSku:ns,date,type,typeLabel:'MASUK',quantity:1,notes,recordedBy:by,timestamp:Date.now(),unit:item.unit})}change=qty}else{const cbs=document.querySelectorAll('.sku-checkbox:checked');if(!cbs.length)return alert('Pilih SKU!');const lbl={OUT:'KELUAR',EVENT_OUT:'EVENT',DAMAGE_OUT:'RUSAK',SERVICE_OUT:'SERVICE'};cbs.forEach(cb=>{recs.push({itemId,itemName:item.name,itemSku:cb.value,date,type,typeLabel:lbl[type]||'KELUAR',quantity:-1,notes,recordedBy:by,timestamp:Date.now(),unit:item.unit})});change=-1*cbs.length}item.quantity+=change;await DBModule.put('inventory_items',item);await DBModule.batchPut('inventory_history',recs);InventoryModule.refresh();UIModule.closeModal('stock-adjust-modal');alert('Berhasil!');e.target.reset()},searchItems(q){const l=q.toLowerCase();const s=this.getFilteredItems();this.renderItems(s.filter(i=>i.name.toLowerCase().includes(l)||i.brand.toLowerCase().includes(l)))},searchHistory(q){InventoryModule.renderHistory(InventoryModule.history.filter(h=>h.itemName.toLowerCase().includes(q.toLowerCase())||h.itemSku.toLowerCase().includes(q.toLowerCase())))},renderItems(l){const el=document.getElementById('inventory-list');el.innerHTML='';if(!l)l=this.items;if(!l.length)return el.innerHTML='<p style="text-align:center;color:#888">Kosong</p>';l.forEach(i=>{const fl=this.formatLocation(i.location);el.innerHTML+=`<div class="inventory-item-card"><div class="details"><h4>${i.name} (${i.brand})</h4><p class="small-text">Lokasi: <strong>${fl}</strong> | ${i.condition}</p></div><div style="text-align:right;margin:0 15px"><div class="qty-label">${i.quantity} <span class="small-text">${i.unit}</span></div></div><div class="stock-control"><button class="btn btn-info btn-table-sm" onclick="UIModule.openEdit(${i.id})">&#9998;</button><button class="btn btn-primary btn-table-sm" onclick="UIModule.openAdjust(${i.id})">&#8644;</button><button class="btn btn-danger btn-table-sm" onclick="InventoryModule.delItem(${i.id})">&#10005;</button></div></div>`})},renderHistory(l){const tb=document.getElementById('inventory-history-body');tb.innerHTML='';if(!l)l=this.history;l.forEach(h=>tb.innerHTML+=`<tr><td>${h.date}</td><td>${h.itemName}</td><td class="code">${h.itemSku||'-'}</td><td>${h.typeLabel}</td><td class="${h.quantity>0?'text-success':'text-danger'}">${h.quantity}</td><td>${h.notes}</td><td><button class="btn btn-danger btn-table-sm" onclick="InventoryModule.delHist(${h.id})">Hapus</button></td></tr>`)},async delItem(id){if(confirm('Hapus?')){await DBModule.del('inventory_items',id);const hd=await DBModule.getAllIdx('inventory_history','by_itemId',id);for(const r of hd)await DBModule.del('inventory_history',r.id);this.refresh()}},async delHist(id){if(confirm('Hapus?')){const r=await DBModule.getItem('inventory_history',id);const i=await DBModule.getItem('inventory_items',r.itemId);if(i){i.quantity-=r.quantity;await DBModule.put('inventory_items',i)}await DBModule.del('inventory_history',id);this.refresh()}}};
+
+        // ===================== UI =====================
+        const UIModule={init(){this.setupTabs();this.setupAdjust();document.getElementById('theme-toggle').onclick=()=>{const b=document.body;const m=b.getAttribute('data-theme')==='light'?'dark':'light';b.setAttribute('data-theme',m)};setTimeout(()=>{document.getElementById('splash-screen').style.display='none';document.getElementById('main-app').style.display='block'},800);document.querySelectorAll('.modal').forEach(m=>m.onclick=e=>{if(e.target===m)this.closeModal(m.id)});CloudModule.init()},setupTabs(){document.querySelectorAll('.tab-button').forEach(b=>b.onclick=e=>{document.querySelectorAll('.tab-button,.tab-content').forEach(x=>x.classList.remove('active'));e.target.classList.add('active');document.getElementById(e.target.dataset.target).classList.add('active')})},showHistoryTab(b){document.querySelectorAll('.content-button').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.querySelectorAll('.sub-content').forEach(x=>x.classList.remove('active'));document.getElementById('inventory-history-content').classList.add('active');InventoryModule.refresh()},setupAdjust(){const sel=document.getElementById('adjust-type');const con=document.getElementById('sku-multi-select-container');const cnt=document.getElementById('selected-count');const sum=document.getElementById('selection-summary');const upd=()=>{const isIn=sel.value.includes('IN');document.getElementById('in-mode-inputs').style.display=isIn?'block':'none';document.getElementById('out-mode-inputs').style.display=isIn?'none':'block';document.getElementById('adjust-sku-start').required=isIn;if(!isIn){con.innerHTML='';cnt.innerText='0';sum.classList.remove('active');const id=parseInt(document.getElementById('adjust-item-id').value);const skus=InventoryModule.getAvailSkus().filter(s=>s.itemId===id);if(!skus.length){document.getElementById('no-sku-msg').style.display='block'}else{document.getElementById('no-sku-msg').style.display='none';skus.forEach(s=>{con.innerHTML+=`<div class="sku-checkbox-item"><input type="checkbox" class="sku-checkbox" value="${s.sku}" id="cb-${s.sku}"><label class="sku-checkbox-label" for="cb-${s.sku}"><span>${s.sku}</span><span class="small-text" style="color:#888">${InventoryModule.formatLocation(s.loc)}</span></label></div>`});con.querySelectorAll('.sku-checkbox').forEach(cb=>{cb.onchange=()=>{const c=con.querySelectorAll('.sku-checkbox:checked').length;cnt.innerText=c;if(c>0)sum.classList.add('active');else sum.classList.remove('active')}})}}};sel.onchange=upd;this.refreshAdjustUI=upd},openModal(id){document.getElementById(id).style.display='flex'},closeModal(id){document.getElementById(id).style.display='none'},openAddItemModal(){document.getElementById('new-item-form').reset();document.getElementById('item-id-edit-field').value='';document.getElementById('item-modal-title').innerText='Tambah Item';this.openModal('add-item-modal')},openEdit(id){const i=InventoryModule.items.find(x=>x.id===id);if(!i)return;const f=document.getElementById('new-item-form');f.name.value=i.name;f.brand.value=i.brand;f.unit.value=i.unit;f.condition.value=i.condition;f.price.value=i.price;f.notes.value=i.notes;f.location.value=i.location;document.getElementById('item-id-edit-field').value=i.id;document.getElementById('item-modal-title').innerText='Edit Item';this.openModal('add-item-modal')},openAdjust(id){const i=InventoryModule.items.find(x=>x.id===id);if(!i)return;document.getElementById('adjust-item-id').value=i.id;document.getElementById('adjust-item-name').innerText=`${i.name} (${i.brand})`;document.getElementById('adjust-current-qty').innerText=`${i.quantity} ${i.unit}`;document.getElementById('adjust-stock-form').reset();document.getElementById('adjust-type').value='IN';this.refreshAdjustUI();this.openModal('stock-adjust-modal')}};
+
+        const App={async init(){await DBModule.openDB();await AccountModule.init();await FinanceModule.init();await InventoryModule.init();UIModule.init()}};document.addEventListener('DOMContentLoaded',App.init);
+    </script>
+</body>
+</html>

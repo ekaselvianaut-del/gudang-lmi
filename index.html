@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LMI MONITOR - Mode Lihat Saja</title>
+    <meta name="theme-color" content="#343a40">
+    <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/LMI-PROJECT/HuviTrack-PWA/main/logo_LMI.png">
+    
+    <style>
+        /* --- STYLE MONITOR (Lebih Bersih) --- */
+        :root { --primary: #343a40; --light: #f8f9fa; --dark: #212529; --gray: #6c757d; --success: #28a745; --danger: #dc3545; --border: 12px; }
+        [data-theme="dark"] { --primary: #495057; --light: #121212; --dark: #e9ecef; }
+        * { margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI',sans-serif; }
+        body { background:var(--light); color:var(--dark); padding-bottom:60px; }
+        
+        .main-header { background:#fff; padding:15px 20px; box-shadow:0 2px 10px rgba(0,0,0,0.1); display:flex; justify-content:space-between; align-items:center; position:sticky; top:0; z-index:100; }
+        .header-title { font-weight:bold; font-size:1.2rem; color:var(--primary); }
+        
+        .app-content { padding:20px; max-width:1200px; margin:0 auto; }
+        
+        .card { background:#fff; padding:20px; border-radius:var(--border); box-shadow:0 1px 3px rgba(0,0,0,0.05); margin-bottom:20px; }
+        .balance-card { background: linear-gradient(135deg, #343a40, #212529); color:white; }
+        .balance-val { font-size:2.5rem; font-weight:bold; margin:10px 0; }
+        
+        .tab-menu { display:flex; border-bottom:2px solid #e9ecef; margin-bottom:20px; gap:15px; }
+        .tab-btn { background:none; border:none; padding:10px; font-weight:600; color:var(--gray); cursor:pointer; border-bottom:3px solid transparent; }
+        .tab-btn.active { color:var(--primary); border-color:var(--primary); }
+        
+        .content-menu { display:flex; gap:5px; margin-bottom:15px; overflow-x:auto; }
+        .sub-btn { padding:6px 12px; border:1px solid #dee2e6; background:#fff; border-radius:20px; cursor:pointer; font-size:0.9rem; }
+        .sub-btn.active { background:var(--primary); color:#fff; border-color:var(--primary); }
+
+        .tab-content, .sub-content { display:none; }
+        .active { display:block; }
+        
+        table { width:100%; border-collapse:collapse; min-width:600px; }
+        th, td { padding:12px; text-align:left; border-bottom:1px solid #eee; }
+        th { background:#f8f9fa; color:var(--gray); font-size:0.9rem; }
+        .text-success { color:var(--success); } .text-danger { color:var(--danger); }
+        
+        .search-box { width:100%; padding:12px; border:1px solid #ced4da; border-radius:8px; margin-bottom:15px; }
+        .item-card { background:#fff; padding:15px; border-radius:10px; border:1px solid #eee; margin-bottom:10px; }
+        .badge { background:#e9ecef; padding:3px 8px; border-radius:4px; font-size:0.75rem; font-weight:600; }
+        
+        /* Modal Settings */
+        .modal { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); display:none; justify-content:center; align-items:center; z-index:999; }
+        .modal-content { background:#fff; padding:25px; border-radius:15px; width:90%; max-width:400px; }
+        .btn { padding:10px 20px; border-radius:8px; border:none; cursor:pointer; font-weight:500; width:100%; margin-top:10px; }
+        .btn-sync { background:#007bff; color:white; }
+        .icon-btn { background:none; border:none; font-size:1.2rem; cursor:pointer; }
+    </style>
+</head>
+<body>
+
+    <div class="main-header">
+        <div class="header-title">&#128202; LMI MONITOR</div>
+        <button class="icon-btn" onclick="document.getElementById('settings-modal').style.display='flex'">&#9881;</button>
+    </div>
+
+    <div class="app-content">
+        <div class="tab-menu">
+            <button class="tab-btn active" onclick="switchTab('finance')">Keuangan</button>
+            <button class="tab-btn" onclick="switchTab('inventory')">Persediaan</button>
+        </div>
+
+        <div id="finance" class="tab-content active">
+            <div class="card balance-card">
+                <p style="opacity:0.8">Saldo Saat Ini</p>
+                <div class="balance-val" id="bal-total">Rp0</div>
+                <div style="display:flex; justify-content:space-between; font-size:0.9rem;">
+                    <span>Masuk: <span id="bal-inc">0</span></span>
+                    <span>Keluar: <span id="bal-exp">0</span></span>
+                </div>
+            </div>
+            <h3 style="margin-bottom:15px;">Riwayat Transaksi</h3>
+            <div style="overflow-x:auto;">
+                <table id="table-finance">
+                    <thead><tr><th>Tanggal</th><th>Tipe</th><th>Keterangan</th><th style="text-align:right">Jumlah</th></tr></thead>
+                    <tbody id="body-finance"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="inventory" class="tab-content">
+            <div class="content-menu">
+                <button class="sub-btn active" onclick="filterLoc('ALL', this)">Semua</button>
+                <button class="sub-btn" onclick="filterLoc('G1', this)">G1</button>
+                <button class="sub-btn" onclick="filterLoc('G2', this)">G2</button>
+                <button class="sub-btn" onclick="filterLoc('G3', this)">G3</button>
+                <button class="sub-btn" onclick="filterLoc('TM', this)">TM</button>
+                <button class="sub-btn" onclick="showHistory(this)">Riwayat Stok</button>
+            </div>
+
+            <div id="view-items" class="sub-content active">
+                <input type="text" class="search-box" placeholder="Cari barang..." onkeyup="searchItem(this.value)">
+                <div id="list-items"></div>
+            </div>
+
+            <div id="view-history" class="sub-content">
+                <input type="text" class="search-box" placeholder="Cari riwayat..." onkeyup="searchHist(this.value)">
+                <div style="overflow-x:auto;">
+                    <table id="table-history">
+                        <thead><tr><th>Tanggal</th><th>Item</th><th>Tipe</th><th>Qty</th><th>Ket</th></tr></thead>
+                        <tbody id="body-history"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="settings-modal" class="modal">
+        <div class="modal-content">
+            <h3 style="margin-bottom:15px;">Sinkronisasi Data</h3>
+            <p style="font-size:0.9rem; color:#666; margin-bottom:15px;">Masukkan URL Google Script dari Admin untuk melihat data terbaru.</p>
+            
+            <input type="text" id="cloud-url" class="search-box" placeholder="https://script.google.com/..." style="margin-bottom:10px;">
+            <button class="btn btn-sync" onclick="downloadData()">&#8681; Ambil Data Terbaru</button>
+            <button class="btn" style="background:#eee; margin-top:10px;" onclick="document.getElementById('settings-modal').style.display='none'">Tutup</button>
+            
+            <div id="status-msg" style="margin-top:15px; font-size:0.9rem; text-align:center;"></div>
+        </div>
+    </div>
+
+    <script>
+        // --- LOGIC VIEWER ---
+        const DB_NAME = 'LMI_PROJECT_DB';
+        const DB_VER = 4;
+        let db;
+        let itemsData = [];
+        let historyData = [];
+        let financeData = [];
+        let currentFilter = 'ALL';
+
+        // 1. Init Database (Read Only Logic mostly)
+        function initDB() {
+            const req = indexedDB.open(DB_NAME, DB_VER);
+            req.onsuccess = e => {
+                db = e.target.result;
+                loadAllData();
+            };
+            req.onupgradeneeded = e => {
+                // Create stores if not exist (for first time viewer)
+                const d = e.target.result;
+                if(!d.objectStoreNames.contains('transactions')) d.createObjectStore('transactions', {keyPath:'id'});
+                if(!d.objectStoreNames.contains('inventory_items')) d.createObjectStore('inventory_items', {keyPath:'id'});
+                if(!d.objectStoreNames.contains('inventory_history')) d.createObjectStore('inventory_history', {keyPath:'id'});
+            };
+        }
+
+        // 2. Load Data
+        async function loadAllData() {
+            financeData = await getAll('transactions');
+            itemsData = await getAll('inventory_items');
+            historyData = await getAll('inventory_history');
+            
+            // Sort
+            financeData.sort((a,b) => b.timestamp - a.timestamp);
+            historyData.sort((a,b) => b.timestamp - a.timestamp);
+
+            renderFinance();
+            renderItems();
+            renderHistory();
+        }
+
+        function getAll(store) {
+            return new Promise(res => {
+                const tx = db.transaction(store, 'readonly');
+                const req = tx.objectStore(store).getAll();
+                req.onsuccess = () => res(req.result);
+            });
+        }
+
+        // 3. Rendering
+        const fmtRp = n => new Intl.NumberFormat('id-ID', {style:'currency', currency:'IDR', minimumFractionDigits:0}).format(n);
+        const fmtLoc = c => {
+            if(!c) return '-';
+            const m = c.toUpperCase().match(/^G(\d+)([A-Z])(\d+)$/);
+            return m ? `GUDANG ${m[1]} LEMARI ${m[2]} BARIS ${m[3]}` : c;
+        };
+
+        function renderFinance() {
+            let inc=0, exp=0;
+            let html = '';
+            financeData.forEach(t => {
+                t.type === 'income' ? inc += t.amount : exp += t.amount;
+                const color = t.type === 'income' ? 'text-success' : 'text-danger';
+                const sign = t.type === 'income' ? '+' : '-';
+                html += `<tr><td>${t.date}</td><td>${t.type==='income'?'Masuk':'Keluar'}</td><td>${t.description}</td><td class="${color}" style="text-align:right">${sign} ${fmtRp(t.amount).replace('Rp','')}</td></tr>`;
+            });
+            document.getElementById('bal-total').innerText = fmtRp(inc-exp);
+            document.getElementById('bal-inc').innerText = fmtRp(inc);
+            document.getElementById('bal-exp').innerText = fmtRp(exp);
+            document.getElementById('body-finance').innerHTML = html || '<tr><td colspan="4" style="text-align:center">Tidak ada data</td></tr>';
+        }
+
+        function renderItems(list) {
+            if(!list) list = itemsData.filter(i => currentFilter === 'ALL' || (i.location && i.location.startsWith(currentFilter)));
+            const container = document.getElementById('list-items');
+            container.innerHTML = '';
+            if(list.length === 0) return container.innerHTML = '<p style="text-align:center; color:#888">Kosong</p>';
+            
+            list.forEach(i => {
+                container.innerHTML += `
+                    <div class="item-card">
+                        <div style="display:flex; justify-content:space-between;">
+                            <h4 style="margin-bottom:5px;">${i.name} <span style="font-weight:normal; color:#666">(${i.brand})</span></h4>
+                            <span style="font-weight:bold; font-size:1.1rem; color:#343a40">${i.quantity} ${i.unit}</span>
+                        </div>
+                        <div style="font-size:0.85rem; color:#666;">
+                            <span class="badge">${fmtLoc(i.location)}</span> | Kondisi: ${i.condition}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function renderHistory(list) {
+            if(!list) list = historyData;
+            const tbody = document.getElementById('body-history');
+            let html = '';
+            list.forEach(h => {
+                const color = h.quantity > 0 ? 'text-success' : 'text-danger';
+                html += `<tr><td>${h.date}</td><td>${h.itemName}</td><td>${h.typeLabel}</td><td class="${color}">${h.quantity}</td><td>${h.notes}</td></tr>`;
+            });
+            tbody.innerHTML = html || '<tr><td colspan="5" style="text-align:center">Kosong</td></tr>';
+        }
+
+        // 4. Interactions
+        function switchTab(id) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        function filterLoc(loc, btn) {
+            currentFilter = loc;
+            document.querySelectorAll('.sub-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('view-items').classList.add('active');
+            document.getElementById('view-history').classList.remove('active');
+            renderItems();
+        }
+
+        function showHistory(btn) {
+            document.querySelectorAll('.sub-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('view-items').classList.remove('active');
+            document.getElementById('view-history').classList.add('active');
+        }
+
+        function searchItem(q) {
+            const l = q.toLowerCase();
+            const filtered = itemsData.filter(i => (currentFilter === 'ALL' || i.location.startsWith(currentFilter)) && (i.name.toLowerCase().includes(l) || i.brand.toLowerCase().includes(l)));
+            renderItems(filtered);
+        }
+
+        function searchHist(q) {
+            const l = q.toLowerCase();
+            renderHistory(historyData.filter(h => h.itemName.toLowerCase().includes(l) || (h.itemSku||'').toLowerCase().includes(l)));
+        }
+
+        // 5. CLOUD SYNC (DOWNLOAD ONLY)
+        async function downloadData() {
+            const url = document.getElementById('cloud-url').value;
+            const msg = document.getElementById('status-msg');
+            
+            if(!url) return alert("Masukkan URL!");
+            localStorage.setItem('lmi_monitor_url', url);
+            
+            msg.innerText = "Sedang mengambil data...";
+            msg.style.color = "blue";
+
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+                
+                // Clear & Insert
+                const tx = db.transaction(['transactions', 'inventory_items', 'inventory_history'], 'readwrite');
+                tx.objectStore('transactions').clear();
+                tx.objectStore('inventory_items').clear();
+                tx.objectStore('inventory_history').clear();
+
+                // Insert New Data
+                const finObjs = data.finance.map(r => ({ id:r[0], date:r[1], type:r[2], account:r[3], amount:r[4], description:r[5], timestamp: Date.now() }));
+                const itemObjs = data.items.map(r => ({ id:r[0], name:r[1], brand:r[2], unit:r[3], condition:r[4], location:r[5], price:r[6], quantity:r[7], notes:r[8], lastUpdated:r[9] }));
+                const histObjs = data.history.map(r => ({ id:r[0], date:r[1], itemName:r[2], itemSku:r[3], typeLabel:r[4], quantity:r[5], unit:r[6], notes:r[7], recordedBy:r[8], timestamp: Date.now() }));
+
+                finObjs.forEach(i => tx.objectStore('transactions').put(i));
+                itemObjs.forEach(i => tx.objectStore('inventory_items').put(i));
+                histObjs.forEach(i => tx.objectStore('inventory_history').put(i));
+
+                tx.oncomplete = () => {
+                    msg.innerText = "Berhasil! Data terupdate.";
+                    msg.style.color = "green";
+                    loadAllData(); // Refresh UI
+                    setTimeout(() => document.getElementById('settings-modal').style.display='none', 1500);
+                };
+            } catch(e) {
+                msg.innerText = "Gagal: " + e.message;
+                msg.style.color = "red";
+            }
+        }
+
+        // Auto Init
+        const savedUrl = localStorage.getItem('lmi_monitor_url');
+        if(savedUrl) document.getElementById('cloud-url').value = savedUrl;
+        
+        initDB();
+    </script>
+</body>
+</html>
